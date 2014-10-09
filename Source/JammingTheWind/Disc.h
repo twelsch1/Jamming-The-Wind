@@ -60,7 +60,6 @@ class ADisc : public AActor
 	void calculateCurveDistance();
 	float getMovementPerSecond();
 	bool getFlipping();
-	void orientDisc(FVector);
 	virtual void Tick(float DeltaSeconds) OVERRIDE;
 
 private:
@@ -101,7 +100,6 @@ private:
 	FVector lobFinalLocation;
 	FVector lobDelta;
 	bool bumperCollision();
-	bool playerCollision();
 	void checkGoalCollision();
 	void curvedShot(float &);
 	void specialShot(float &);

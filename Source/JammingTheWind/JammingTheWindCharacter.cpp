@@ -14,12 +14,8 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	// Set size for player capsule
 	CapsuleComponent->InitCapsuleSize(42.f, 96.f); //42 and 96 were default, then we did x2 for some reason
 	//CapsuleComponent->SetHiddenInGame(false);
-	dashSphere = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("dashSphere"));
-	dashSphere->AttachTo(RootComponent);
 
-	dashSphere->SetSphereRadius(100.f);
-	//dashSphere->Set
-	//dashSphere->SetHiddenInGame(false);
+
 
 	// Don't rotate character to camera direction
 	bUseControllerRotationPitch = false;
@@ -35,7 +31,6 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	rotationAdjustment = 0;
 	inPossession = false;
 	hasShot = true;
-	ReceiveDisc = false;
 	movementLocked = false;
 	controllerRotationX = 0;
 	controllerRotationY = 0;
@@ -48,12 +43,12 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	xDir = 1;
 	yDir = 1;
 	index = 0;
-	updates = 100;
+
 	shotFree = true;
 
 	//determines the final resting place of disc in relation to character 
 	//and how it animates
-	zOffset = 280;
+	zOffset = 240;
 	yOffset = 120;
 	orientDiscTimer = -1;
 	orientDiscOverTime = 0.1;
@@ -69,7 +64,6 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	yDashDirection = 0;
 	xDashDirection = 0;
 	dashingTimer = -1;
-	discDashing = false;
 	dashMovementPerSecond = 2000;
 	dashAmplitude = 250; //was 500
 	dashOverTime = dashAmplitude / dashMovementPerSecond;
@@ -91,7 +85,7 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	chargeMinTime = 1;
 	chargeXMashes = 0;
 	chargeAMashes = 0;
-	chargeMinMashes = 5;
+	chargeMinMashes = 7;
 	xCharged = false;
 	aCharged = false;
 
@@ -111,11 +105,13 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	maxSpeed = 3500; //the maximum speed the disc can reach
 	curveLeeway = 8; //the margin of error we allow for starting curve event 
 	rotationPerSecond = 180 * 4; //e.g the max 180 rotation would take 1/4 of a second
-	rotationLeeway = 0.1;
-	shotAmplitude = 4000;
-	curveInputTime = 0.2;
-	curveOutputTime = 0.2;
-	curveDelta = 65;
+	rotationLeeway = 0.1; //leeway in degrees for orientation event
+	shotAmplitude = 4000; //used in trig functions below
+	curveInputTime = 0.3; //the amount of time player has to do quarter circle
+	curveOutputTime = 0.2; //amount of time player has after successful quarter circle to press a
+	curveDelta = 65; //the amount of degrees the stick has to move to register quarter circle
+	//note that the ideal player would go 90, but this is meant to give player a large margin of error
+	//and do what they meant rather than what they executed
 
 	
 
@@ -125,7 +121,7 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	FRotator rot = { -90, 0, 0 };
 	CameraBoom->SetRelativeLocationAndRotation(vec, rot);
 	CameraBoom->bAbsoluteRotation = true; // Don't want arm to rotate when character does
-	CameraBoom->TargetArmLength = 400.f; //was -100
+	CameraBoom->TargetArmLength = 400; //was -100
 	CameraBoom->bDoCollisionTest = false; // Don't want to pull camera in when it collides with level
 
 	// Create a camera...
@@ -141,7 +137,7 @@ void AJammingTheWindCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	
-
+	// run our support timers
 	runTimers(DeltaSeconds);
 
 /*
@@ -149,14 +145,17 @@ Debugging output, used for video series
 FString output = "yDir: " + FString::SanitizeFloat(calculateXDirection(shotAmplitude));
 GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, *(output));
 output = "xDir: " + FString::SanitizeFloat(calculateYDirection(shotAmplitude));
-GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, *(output));  */
+GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, *(output));  
+Note that y output and x output are reversed. The actual x/y axes of the world are
+flipped from what would normally be expected e.g from the player's perspective, the horizontal
+plane is actually y and vertical x.*/
 
 	if (dashing)
 	{
 		dash(DeltaSeconds);
 	}
 
-	
+	//some logic to help animate character to the front when they aren't moving
 	if (isNotMoving())
 	{
 		if (startRot)
@@ -177,12 +176,13 @@ GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, *(output));  */
 		startOfPossession = true;
 	
 	
-
+	
+	//the player is possessing until the disc has been shot, so it only checks when hasShot is true and disc isn't flipping
 	if (hasShot && discCollTimer < 0 && !flipOrCharge())
 		inPossession = isDiscColliding();
-	//the player is possessing until the disc has been shot, so it only checks when hasShot is true
+	
 	flipEventHelper(DeltaSeconds);
-
+	//if player catches it on dash, we move the disc to the offset.
 	if (inPossession && dashing)
 	{
 		orientLocationHelper = RootComponent->GetComponentLocation();
@@ -200,8 +200,8 @@ GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, *(output));  */
 				disc->setFlipping(true);
 			}
 
-		
-		movementLocked = false;
+		//if flipEvent, the disc starts flipping
+		//we reset some variables and move the disc to the offet
 		hasShot = false;
 		chargeXMashes = 0;
 		chargeAMashes = 0;
@@ -217,7 +217,8 @@ GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, *(output));  */
 
 		}
 		
-
+		//in first tick and every other tick we slow down disc until
+		//launched and we check for curve shot or charge shot
 	
 		disc->addToMovementPerSecond(slowDown * DeltaSeconds);
 	
@@ -265,11 +266,14 @@ void AJammingTheWindCharacter::receiveXButtonInput()
 		disc->StandardDirection.Set(xDir, yDir, disc->StandardDirection.Z);
 		myGameMode->setLobDiscLocation(delta);
 		myGameMode->setFlashLobDisc(true);
+		//we temporarily lock movement so player's aim does not translate into movement in next frame
+		//inform disc player is no longer in possession and to check for when it crosses the midline
+
 		movementLocked = true;
 		refreshTimer = 0;
-		
 		disc->setPlayerPossessing(false);
 		disc->setCrossedMidline(false);
+		//reset variables for character
 		inPossession = false;
 		hasShot = true;
 		discCollTimer = 0;
@@ -277,6 +281,7 @@ void AJammingTheWindCharacter::receiveXButtonInput()
 		curveEvent = false;
 		curveTimer = 0;
 
+		//set lob shot to true and all others to false
 		disc->setSpecial(false);
 		disc->setStandard(false);
 		disc->setCurved(false);
@@ -304,7 +309,7 @@ void AJammingTheWindCharacter::receiveAButtonInput()
 		disc->setPlayerPossessing(false);
 		disc->setCrossedMidline(false);
 
-		if (curveEvent)
+		if (curveEvent) //curve shot
 		{
 		
 			disc->setCurveFirstRun(true);
@@ -319,10 +324,12 @@ void AJammingTheWindCharacter::receiveAButtonInput()
 			curveInputEvent = false;
 			curveEvent = false;
 			curveTimer = 0;
+			inPossession = false;
 
 		}
 		else
 		{
+			//standard shot
 		
 			disc->setXDirection(calculateXDirection(shotAmplitude));
 			disc->setYDirection(calculateYDirection(shotAmplitude));
@@ -340,6 +347,7 @@ void AJammingTheWindCharacter::receiveAButtonInput()
 			curveInputEvent = false;
 			curveEvent = false;
 			curveTimer = 0;
+			inPossession = false;
 		}
 		
 	}
@@ -349,21 +357,21 @@ void AJammingTheWindCharacter::receiveAButtonInput()
 
 	}
 
-	if (!inPossession && !dashing && !movementLocked && getStickInput()) //the isMoving means the analog stick needs to point somewhere, instead of dashing
+	if (!inPossession && !dashing && !movementLocked && getStickInput()) //when not in possession and stick is moving and we aren't movement locked
 	{
-		
+		//begin dashing
 		dashing = true;
 		dashingTimer = 0;
 		xDashDirection = calculateXDirection(dashAmplitude);
 		yDashDirection = calculateYDirection(dashAmplitude);
 	
 	}
-	if (!flipOrCharge())
-		inPossession = false;
+		
 }
 float AJammingTheWindCharacter::calculateXDirection(float& amplitude)
 {
-
+	//again note that we use Sin for X as the axes our flipped from player's perspective in game
+	//we convert to degrees then multiply the trig statement by amplitude
 	return FMath::Sin((controllerRotationY) / 180 * PI) * amplitude;
 	
 }
@@ -375,9 +383,11 @@ float AJammingTheWindCharacter::calculateYDirection(float& amplitude)
 }
 void AJammingTheWindCharacter::animateToFront(float& DeltaSeconds)
 {
+	/* Using rotation adjustment, we rotate character so that he faces toward the opposite goal. (e.g 90 or -90 degrees)
+	*/
 	float overTime;
 	FRotator Delta;
-	
+	int updates = 100;
 	
 	overTime = FMath::Abs(rotationAdjustment)/rotationPerSecond;
 	orientDiscOverTime = overTime;
@@ -417,13 +427,15 @@ void AJammingTheWindCharacter::calculateRotationAdjustment()
 }
 void AJammingTheWindCharacter::dash(float &DeltaSeconds)
 {
-	int mult;
+	int mult, updates;
+	updates = 1;
 	FVector Delta;
 	if (RootComponent->GetComponentRotation().Yaw < 0)
 		mult = -1;
 	else
 		mult = 1;
 
+	//we move the character an extra amount in the direction they are already aiming to create a dash effect
 	for (int i = 0; i < updates; ++i)
 	{
 		dashCollision();
@@ -434,8 +446,7 @@ void AJammingTheWindCharacter::dash(float &DeltaSeconds)
 		
 		else
 			i += updates;
-		//if (discDashing)
-		//	disc->orientDisc(Delta);
+	
 
 		dashCollision();
 
@@ -443,7 +454,7 @@ void AJammingTheWindCharacter::dash(float &DeltaSeconds)
 }
 void AJammingTheWindCharacter::dashCollision()
 {
-
+	//check to see if player is running into a wall or a goal
 	TArray<AActor*> overlappingActors;
 	
 	GetOverlappingActors(overlappingActors);
@@ -456,7 +467,7 @@ void AJammingTheWindCharacter::dashCollision()
 
 		if (myGoal)
 		{
-
+			//e.g if it's not the floor
 			if (myGoal->GoalValue != 2)
 			{
 
@@ -476,11 +487,12 @@ void AJammingTheWindCharacter::dashCollision()
 
 	}
 	
-	discDashing = isDiscColliding();
+	
 
 }
 bool AJammingTheWindCharacter::isDiscColliding()
 {
+	//when disc collides, we set disc to myDisc and return true to start possession
 	TArray<AActor*> overlappingActors;
 	GetOverlappingActors(overlappingActors);
 	for (int i = 0; i < overlappingActors.Num(); ++i)
@@ -504,6 +516,8 @@ bool AJammingTheWindCharacter::isDiscColliding()
 
 FVector AJammingTheWindCharacter::calculateDiscDelta(float &DeltaSeconds)
 {
+
+	//deprecated code
 	
 
 	FVector finalDiscDest, discDelta;
@@ -559,7 +573,7 @@ void AJammingTheWindCharacter::runTimers(float &DeltaSeconds)
 	{
 		dashingTimer = -1;
 		dashing = false;
-		discDashing = false;
+
 	}
 
 	if (discCollTimer >= 0)
@@ -583,6 +597,7 @@ void AJammingTheWindCharacter::flipEventHelper(float &DeltaSeconds)
 }
 void AJammingTheWindCharacter::curveEventHelper(float &DeltaSeconds)
 {
+	//if player moves stick to correct position, we check for quarter circle
 	if (isCurveTopInput())
 	{
 		curveInputEvent = true;
@@ -598,6 +613,7 @@ void AJammingTheWindCharacter::curveEventHelper(float &DeltaSeconds)
 
 	}
 
+	//check for quarter circle
 	if (curveInputEvent)
 	{
 		curveTimer += DeltaSeconds;
@@ -618,7 +634,8 @@ void AJammingTheWindCharacter::curveEventHelper(float &DeltaSeconds)
 	
 
 	}
-
+	//if quarter circle, we set curveEvent to true
+	//if input a is made during curve event, we launch curve shot
 	if (curveEvent)
 	{
 		curveTimer += DeltaSeconds;
@@ -710,17 +727,19 @@ FVector AJammingTheWindCharacter::calculateLobDelta()
 		if (yDistance > -1 * lobYMin)
 			yDistance = -1 * lobYMin;
 	}
-	
+	//get ratio of x to y and then multiply by y Distance
 	xDistance = (calculateXDirection(shotAmplitude) /calculateYDirection(shotAmplitude)) * FMath::Abs(yDistance);
 
 	
 	lobXMax = xMax - xOffset;
 	lobXMin = xMin + xOffset;
+	//if negative
 	if (xDistance < 0)
 	{
 		if (disc->GetActorLocation().X + xDistance < lobXMin)
 			xDistance = lobXMin - disc->GetActorLocation().X;
 	}
+	//if positive
 	else
 	{
 		if (disc->GetActorLocation().X + xDistance > lobXMax)
@@ -734,11 +753,9 @@ FVector AJammingTheWindCharacter::calculateLobDelta()
 
 bool AJammingTheWindCharacter::discSet()
 {
+	//deprecated
 	if (disc->GetActorLocation() == discSetLocation)
 		return true;
 	else
 		return false;
 }
-/*FString output = "debuggingOutput";
-GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, *(output));
- */

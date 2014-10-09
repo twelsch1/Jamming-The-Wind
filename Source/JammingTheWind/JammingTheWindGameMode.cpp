@@ -73,12 +73,14 @@ void AJammingTheWindGameMode::updateScore(bool whoScored, int32 ptValue)
 	flashLobDisc = false;
 	lastScored = whoScored;
 	
+	//determine who to give the points to
 		if (lastScored)
 			leftPlayerScore += ptValue;
 		else
 			rightPlayerScore += ptValue;
 		flashScoreboard = true;
 
+	//determine who was the losing player and lock movement and set them as losing index so they get the disc
 		TArray<AActor*> foundActors;
 		int index = 0;
 		UGameplayStatics::GetAllActorsOfClass(GetWorld(), AJammingTheWindCharacter::StaticClass(), foundActors);
@@ -105,7 +107,7 @@ void AJammingTheWindGameMode::updateScore(bool whoScored, int32 ptValue)
 				index++;
 			}
 		}
-
+		
 		scoreBoardTimer = 0;
 
 	}
@@ -118,6 +120,8 @@ void AJammingTheWindGameMode::scoreboardHelper(float &DeltaSeconds)
 
 	else
 	{
+		//when we are done flashing on the screen, determine if any sets were won
+		//as well as if we need a match reset
 		if (leftPlayerScore >= setLength)
 		{
 			setNumber++;
@@ -157,17 +161,8 @@ void AJammingTheWindGameMode::resetPlayersAndDisc()
 		if (player)
 		{
 
-			if (!lastScored && index == 1)
-			{
-				player->setMovementLocked(true);
-				lIndex = 1;
-			}
-			if (lastScored && index == 0)
-			{
-				player->setMovementLocked(true);
-				lIndex = 0;
-			}
-
+		
+			//send player's back to starting blocks
 			if (player->getYDir() == 1)
 				player->TeleportTo(leftPlayerStartLocation, leftPlayerRot);
 			else
@@ -193,6 +188,7 @@ void AJammingTheWindGameMode::resetPlayersAndDisc()
 void AJammingTheWindGameMode::setUpPlayers()
 {
 	int index = 0;
+	//spawn second player
 	UGameplayStatics::CreatePlayer(this, 1);
 	spawnPlayer = false;
 	TArray<AActor*> foundActors;
@@ -206,7 +202,6 @@ void AJammingTheWindGameMode::setUpPlayers()
 		{
 			if (index == 0)
 			{
-				player->ReceiveDisc = true;
 				player->setMovementLocked(true);
 				player->setYDir(-1);
 			}
