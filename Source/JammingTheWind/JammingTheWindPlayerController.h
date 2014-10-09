@@ -45,6 +45,6 @@ FORCEINLINE float AJammingTheWindPlayerController::getAButtonHeld()
 FORCEINLINE float AJammingTheWindPlayerController::getXButtonHeld()
 {
 	FKey f;
-	f = EKeys::Gamepad_FaceButton_Left;
+	f = EKeys::Gamepad_FaceButton_Right;
 	return GetInputKeyTimeDown(f);
 }

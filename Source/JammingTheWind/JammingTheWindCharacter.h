@@ -17,9 +17,9 @@ class AJammingTheWindCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	TSubobjectPtr<class USpringArmComponent> CameraBoom; 
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MyChar)
+	/*(UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MyChar)
 	bool ReceiveDisc;
-
+	*/
 
 	virtual void Tick(float DeltaSeconds) OVERRIDE;
 
@@ -31,7 +31,6 @@ class AJammingTheWindCharacter : public ACharacter
 	void resetHelper();
 	void setYDir(int);
 	void addToCurveDeltaHelper(float);
-	//bool getStrafing();
 	bool getCurveInputEvent();
 	bool getDashing();
 	bool getMovementLocked();
@@ -108,22 +107,18 @@ private:
 
 	FVector orientLocationHelper;
 
-	int updates;
 
 	bool startOfPossession; 
 	bool orientDisc;
 	bool curveInputEvent;
 	bool curveEvent;
-	//bool strafing;
 	bool startRot;
-	//bool startPoss;
 	bool dashing; 
-	bool discDashing;
 	bool hasShot;
 	bool shotFree;
 	bool movementLocked;
 
-	TSubobjectPtr<class USphereComponent> dashSphere;
+	//TSubobjectPtr<class USphereComponent> dashSphere;
 
 
 	float calculateXDirection(float &);
@@ -155,7 +150,6 @@ FORCEINLINE void AJammingTheWindCharacter::resetHelper()
 {
 	startOfPossession = false;
 	inPossession = false;
-	discDashing = false;
 	dashing = false;
 	hasShot = true;
 	shotFree = true;

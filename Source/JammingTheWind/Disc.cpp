@@ -239,7 +239,7 @@ void ADisc::standardShot(float &DeltaSeconds)
 	xDistance = xDirection;
 	distance = FMath::Sqrt(FMath::Square(xDistance) + FMath::Square(yDistance));
 	overTime = distance / movementPerSecond;
-	//code that I might add back in, would make it so curveRebound would be predictable
+	//code that I might add back in, would make it so rebound off curve shot would be predictable
 	/*if (curveRebound)
 	{
 		yDistance = 2000 * StandardDirection.Y;
@@ -283,21 +283,24 @@ void ADisc::standardShot(float &DeltaSeconds)
 
 void ADisc::specialShot(float &DeltaSeconds)
 {
-
+	/* The shot advances along one axis until it hits the wall, at which point it advances along the other, speeding up as it goes.
+	Spins in the direction it is shot.
+	*/
 	float xDistance, yDistance,  overTime, speedUp;
 	bool helperBool;
 	int rps = 3;
-//	int updates;
 	FVector Delta;
 	
 	FRotator rot(0, 360 * rps * (DeltaSeconds) * StandardDirection.X, 0);
-	//updates = 1;
 	speedUp = 2000;
 	xDistance = 4000;
 	yDistance = 0;
+	//I've considered having a seperate MovementPerSecond for charge, which would be equal to MPS except would have a higher minimum
+	//and lower maximum and would check to see if it was within those bounds. Thus, why there is a chargeMPS commented out below.
 	//chargeMPS = 3000;
 	overTime = xDistance / movementPerSecond;
 	xDistance *= StandardDirection.X;
+	//check if it is near the wall
 	helperBool = (StandardDirection.X == 1 && RootComponent->GetComponentLocation().X >= xMax - xOffset) ||
 		(StandardDirection.X == -1 && RootComponent->GetComponentLocation().X <= xMin + xOffset);
 	if (helperBool)
@@ -329,7 +332,8 @@ void ADisc::specialShot(float &DeltaSeconds)
 
 void ADisc::curvedShot(float &DeltaSeconds)
 {
-	
+	/* Shot is curved along a parabolic graph, spinning as it goes.
+	*/
 
 	FVector Delta;
 	float f1, f2, f3, f4, step;
@@ -339,7 +343,10 @@ void ADisc::curvedShot(float &DeltaSeconds)
 	updates = 1;
 	y = 3000; //was 3000
 	a = 0.0004; //was 0.0003, 0.0005 looked interesting as well
-	
+	/*instead of doing the below each time, we calculate on the first run
+	f5 = (a * FMath::Square(y - curveOffset));
+	curveDistance = FMath::Sqrt(FMath::Square(f5) + FMath::Square(y - curveOffset)); 
+	*/
 
 	FRotator rot(0, 360 * 2 * (DeltaSeconds / updates) * StandardDirection.X, 0);
 	overTime = curveDistance / movementPerSecond;
@@ -394,19 +401,18 @@ void ADisc::calculateCurveDistance()
 	y = 3000;
 	a = 0.0004;
 
-	f = (StandardDirection.X * a * FMath::Square(y-curveOffset));
+	f = ( a * FMath::Square(y-curveOffset));
 	curveDistance = FMath::Sqrt(FMath::Square(f) + FMath::Square(y-curveOffset)); //distance formula
 	
 }
 
-void ADisc::orientDisc(FVector Delta)
-{
-	
-	RootComponent->AddRelativeLocation(Delta);
-}
+
 
 bool ADisc::bumperCollision()
 {
+	/*
+	Go through all overlapping actors, if one is a bumper then we return true.
+	*/
 
 	TArray<AActor*> OverlappingActors;
 	GetOverlappingActors(OverlappingActors);
@@ -423,35 +429,23 @@ bool ADisc::bumperCollision()
 
 	}
 
-	/*if ((StandardDirection.X == 1 && RootComponent->GetComponentLocation().X >= xMax - xOffset) ||
-		(StandardDirection.X == -1 && RootComponent->GetComponentLocation().X <= xMin + xOffset))
+	/*Code that accomplishes this based off location rather than collision.
+	While feasible, it would need to be supplemented with similar logic for restricting the player.
+	Collision is the nicer way to accomplish this objective, but the collision currently in the
+	game is finicky in part due to the various overlaps that are allowed. Currently, the player can walk into
+	part of a wall and goal, and this also restricts his ability to dash. A change to this location based system
+	will thus probably be made just to make it look nicer and play better.
+
+
+if (RootComponent->GetComponentLocation().X >= xMax - xOffset) ||
+		(RootComponent->GetComponentLocation().X <= xMin + xOffset))
 		return true;
 		*/
 	return false;
 
 }
 
-bool ADisc::playerCollision()
-{
 
-	TArray<AActor*> OverlappingActors;
-	GetOverlappingActors(OverlappingActors);
-
-	for (int i = 0; i < OverlappingActors.Num(); ++i)
-	{
-		AJammingTheWindCharacter* const myCharacter = Cast<AJammingTheWindCharacter>(OverlappingActors[i]);
-
-		if (myCharacter)
-		{
-
-			return true;
-		}
-
-	}
-
-	return false;
-
-}
 void ADisc::checkGoalCollision()
 {
 	TArray<AActor*> overlappingActors;
@@ -463,8 +457,8 @@ void ADisc::checkGoalCollision()
 
 		if (Goal)
 		{
-	
-			AJammingTheWindGameMode* myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
+		//in the event of a goal, reports to game mode and then destroys itself.
+			myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
 			myGameMode->updateScore(Goal->ScoringSwitch, Goal->GoalValue);
 			Destroy();
 		}
@@ -476,10 +470,12 @@ void ADisc::checkGoalCollision()
 
 void ADisc::crossedMidlineHelper()
 {
-	
+	/* If the player touches the disc twice on his own end, the opponent gains two points and the
+	game is reset.
+	*/
 	if (StandardDirection.Y == 1 && RootComponent->GetComponentLocation().Y > midLine)
 	{
-		
+		//disc made it to other side
 		crossedMidline = true;
 		midlineTimer = -1;
 
@@ -488,7 +484,7 @@ void ADisc::crossedMidlineHelper()
 
 	if (StandardDirection.Y == -1 && RootComponent->GetComponentLocation().Y < midLine)
 	{
-
+		//disc made it to other side
 		crossedMidline = true;
 		midlineTimer = -1;
 
@@ -497,6 +493,7 @@ void ADisc::crossedMidlineHelper()
 
 	if (playerPossessing && !crossedMidline)
 	{
+		//disc didn't make it to other side
 		
 		bool scoreSwitch;
 		AJammingTheWindGameMode* myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
@@ -517,6 +514,9 @@ void ADisc::crossedMidlineHelper()
 void ADisc::checkIfInBounds()
 {
 
+	/*If due to a bug the disc gets out of bounds, we call update score without adding to either score in order
+	to respawn players and flash scoreboard. The disc destroys itself.*/
+
 	FVector check = GetActorLocation();
 	if (check.X > xMax + outOfBoundsOffset ||
 		check.X < xMin - outOfBoundsOffset ||
@@ -535,7 +535,10 @@ void ADisc::checkIfInBounds()
 }
 
 void ADisc::runDiscTimers(float &DeltaSeconds)
+
 {
+	/* We check if inbounds and then run our timers which in order assist logic with the bumper, flip event, and crossed midline event.
+	*/
 	checkIfInBounds();
 
 	if (bumperCollTimer >= 0)

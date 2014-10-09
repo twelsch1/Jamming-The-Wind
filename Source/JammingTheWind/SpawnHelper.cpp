@@ -12,7 +12,7 @@ ASpawnHelper::ASpawnHelper(const class FPostConstructInitializeProperties& PCIP)
 	WhereToSpawn = PCIP.CreateDefaultSubobject<UBoxComponent>(this, TEXT("WhereToSpawn"));
 
 	RootComponent = WhereToSpawn;
-	DiscSpawnLocation = FVector{ 94.0, -1047, 240.0 };
+	DiscSpawnLocation = FVector{ 94.0, -1040, 240.0 };
 
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -30,6 +30,9 @@ void ASpawnHelper::Tick(float DeltaSeconds)
 
 void ASpawnHelper::SpawnDisc()
 {
+	//spawns a disc around center of world on first tick then destroys itself.
+	//this class may soon be deprecated, as it is only used once with gameMode spawning discs in
+	//from that point on.
 	if (Check)
 	{
 

@@ -7,7 +7,7 @@
 AJammingTheWindPlayerController::AJammingTheWindPlayerController(const class FPostConstructInitializeProperties& PCIP)
 	: Super(PCIP)
 {
-	baseTurnRate = 90.f;
+	baseTurnRate = 90;
 	smoothnessThreshold = 30;
 	oneAPerFrame = true;
 	oneXPerFrame = true;
@@ -27,6 +27,7 @@ void AJammingTheWindPlayerController::PlayerTick(float DeltaTime)
 	if (firstTick)
 	{
 	
+		//get the character corresponding to this controller
 		myChar = Cast<AJammingTheWindCharacter>(GetPawn());
 		firstTick = false;
 	}
@@ -79,11 +80,15 @@ void AJammingTheWindPlayerController::turnRate(float rate)
 	if (myChar)
 	{
 
+		//we get how far the stick has turned from our last update and add that value
+
 		prev = myChar->getControllerRotationX();
 		myChar->setControllerRotationX(rate * baseTurnRate);
 
 		
 		//rotationX - prev must be less than smoothness value
+		//this prevents someone from hitting bottom then side 
+		//without performing quarter circle motion
 
 		if (myChar->getCurveInputEvent())
 		{
@@ -116,7 +121,7 @@ void AJammingTheWindPlayerController::moveForward(float value)
 		if (myChar)
 		{
 
-
+			//move forward and backwards if not in possession and movement isn't locked
 			const FRotator Rotation = this->GetControlRotation();
 
 			const FRotator YawRotation(0, Rotation.Yaw, 0);
@@ -140,6 +145,7 @@ void AJammingTheWindPlayerController::moveRight(float value)
 		
 		if (myChar)
 		{
+			//move right and left if not in possession and movement isn't locked
 
 			const FRotator Rotation = this->GetControlRotation();
 			
