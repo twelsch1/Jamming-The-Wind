@@ -20,6 +20,7 @@ class AJammingTheWindGameMode : public AGameMode
 	FVector getLobDiscLocation();
 	bool getFlashScoreboard();
 	bool getFlashLobDisc();
+	bool getGameOver();
 	int32 getLeftPlayerScore();
 	int32 getRightPlayerScore();
 	int getLeftPlayerSetsWon();
@@ -55,7 +56,6 @@ private:
 };
 
 
-//we need accessors for the scores, set number, and sets won
 
 FORCEINLINE void AJammingTheWindGameMode::setFlashLobDisc(bool truth)
 {

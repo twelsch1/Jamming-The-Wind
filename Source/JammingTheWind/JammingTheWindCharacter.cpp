@@ -182,14 +182,6 @@ plane is actually y and vertical x.*/
 		inPossession = isDiscColliding();
 	
 	flipEventHelper(DeltaSeconds);
-	//if player catches it on dash, we move the disc to the offset.
-	if (inPossession && dashing)
-	{
-		orientLocationHelper = RootComponent->GetComponentLocation();
-		orientLocationHelper.Set(orientLocationHelper.X, orientLocationHelper.Y, zOffset);
-		discSetLocation = orientLocationHelper + FVector(0, yOffset * yDir, 0);
-		disc->SetActorLocationAndRotation(discSetLocation, FRotator(0, 0, 0));
-	} 
 
 	if (inPossession && !dashing)
 	{		
@@ -464,7 +456,13 @@ void AJammingTheWindCharacter::dashCollision()
 
 		AJammingTheWindGoal* const myGoal = Cast<AJammingTheWindGoal>(overlappingActors[i]);
 
+		ADisc* const thisDisc = Cast<ADisc>(overlappingActors[i]);
 
+		if (thisDisc)
+		{
+			dashing = false;
+			dashingTimer = -1;
+		}
 		if (myGoal)
 		{
 			//e.g if it's not the floor

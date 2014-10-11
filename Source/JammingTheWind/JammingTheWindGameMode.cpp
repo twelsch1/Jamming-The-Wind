@@ -15,6 +15,7 @@ AJammingTheWindGameMode::AJammingTheWindGameMode(const class FPostConstructIniti
 
 	spawnPlayer = true;
 	lastScored = true;
+
 	leftPlayerScore = 0;
 	rightPlayerScore = 0;
 	leftPlayerSetsWon = 0;
@@ -114,9 +115,11 @@ void AJammingTheWindGameMode::updateScore(bool whoScored, int32 ptValue)
 }
 void AJammingTheWindGameMode::scoreboardHelper(float &DeltaSeconds)
 {
+
+	flashScoreboard = true;
+
 	if (scoreBoardTimer >= 0 && scoreBoardTimer < scoreBoardEndTimer)
 		scoreBoardTimer += DeltaSeconds;
-
 
 	else
 	{
@@ -136,12 +139,15 @@ void AJammingTheWindGameMode::scoreboardHelper(float &DeltaSeconds)
 			rightPlayerScore = 0;
 			leftPlayerScore = 0;
 		}
+
 		if (rightPlayerSetsWon >= 2 || leftPlayerSetsWon >= 2)
 		{
 			setNumber = 1;
 			rightPlayerSetsWon = 0;
 			leftPlayerSetsWon = 0;
 		}
+			
+
 	
 		resetPlayersAndDisc();
 		flashScoreboard = false;
@@ -153,6 +159,7 @@ void AJammingTheWindGameMode::resetPlayersAndDisc()
 {
 	TArray<AActor*> foundActors;
 	int index = 0;
+
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AJammingTheWindCharacter::StaticClass(), foundActors);
 	for (auto Actor : foundActors)
 	{

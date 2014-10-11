@@ -92,9 +92,10 @@ void AJammingTheWindScoreboard::DrawHUD()
 	//On score, flash a much larger version of current score in center of screen
 	if (myGameMode->getFlashScoreboard())
 	{
-		DrawText(FString::FromInt(myGameMode->getLeftPlayerScore()), FColor::Blue, leftPlayerFlashPos.X, leftPlayerFlashPos.Y, FlashingFont);
-		DrawText(FString::FromInt(myGameMode->getRightPlayerScore()), FColor::Red, rightPlayerFlashPos.X, rightPlayerFlashPos.Y, FlashingFont);
-		DrawText("-", FColor::Black, dashPos.X, dashPos.Y, FlashingFont);
+			DrawText(FString::FromInt(myGameMode->getLeftPlayerScore()), FColor::Blue, leftPlayerFlashPos.X, leftPlayerFlashPos.Y, FlashingFont);
+			DrawText(FString::FromInt(myGameMode->getRightPlayerScore()), FColor::Red, rightPlayerFlashPos.X, rightPlayerFlashPos.Y, FlashingFont);
+			DrawText("-", FColor::Black, dashPos.X, dashPos.Y, FlashingFont);
+		
 	} 
 
 
