@@ -3,6 +3,8 @@ Jamming-The-Wind
 
 Repository for source files of my UE4 game Jamming The Wind, below is the general license agreement for the code.
 
+For questions about my code, feel free to email me at twelsch1998@gmail.com.
+
 
                     GNU GENERAL PUBLIC LICENSE
                        Version 2, June 1991
