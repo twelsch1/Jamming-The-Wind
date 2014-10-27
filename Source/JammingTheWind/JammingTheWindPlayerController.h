@@ -31,7 +31,17 @@ private:
 	float baseTurnRate;
 	float smoothnessThreshold;
 
-
+	float yMin;
+	float yMax;
+	float xMin;
+	float xMax;
+	float midLine;
+	float xOffset; 
+	float yOffset;
+	float dashOverTime;
+	float playerDeltaSeconds;
+	float controllerRotationX;
+	float controllerRotationY;
 };
 
 

@@ -35,7 +35,7 @@ ADisc::ADisc(const class FPostConstructInitializeProperties& PCIP)
 	aimDirLeft = false;
 	//curveRebound = false;
 	playerPossessing = false;
-	
+	firstPossession = true;
 	//used to "graph" out parabolic functions in lob and curve shots
 	//as well as the linear movement of standard shot
 	curveHelper = 0;
@@ -64,7 +64,7 @@ ADisc::ADisc(const class FPostConstructInitializeProperties& PCIP)
 	xMin = -802.601074;
 	xMax = 967.398926;
 	midLine = -1040;
-	xOffset = 160; //was 160, 140 looked pretty good
+	xOffset = 140; //was 160, 140 looked pretty good
 
 	//used in crossed midline helper
 	crossedMidline = true;
@@ -95,6 +95,13 @@ void ADisc::Tick(float DeltaSeconds)
 	SpawnMove();
 	//close the gate behind us as we enter
 	Spawned = false;
+	}
+
+	if (playerPossessing && firstPossession)
+	{
+
+		KillSpawnMove();
+		firstPossession = false;
 	}
 	
 	//run our timers which support various functions
@@ -136,6 +143,10 @@ void ADisc::SpawnMove_Implementation()
 	//but I was experimenting with blueprint early on and kept this function since it worked.
 }
 
+void ADisc::KillSpawnMove_Implementation()
+{
+	//Used to end spawn move when player is possessing.
+}
 void ADisc::flip(float &DeltaSeconds)
 {
 	/*flips the disc like a coin by altering its roll and sending the disc up until it reaches
@@ -301,10 +312,12 @@ void ADisc::specialShot(float &DeltaSeconds)
 	overTime = xDistance / movementPerSecond;
 	xDistance *= StandardDirection.X;
 	//check if it is near the wall
-	helperBool = (StandardDirection.X == 1 && RootComponent->GetComponentLocation().X >= xMax - xOffset) ||
-		(StandardDirection.X == -1 && RootComponent->GetComponentLocation().X <= xMin + xOffset);
+	helperBool = bumperCollision();
+		//(RootComponent->GetComponentLocation().X >= xMax - xOffset) ||
+		//(RootComponent->GetComponentLocation().X <= xMin + xOffset);
 	if (helperBool)
 	{
+	
 		xDistance *= 0;
 		yDistance = 4000 * StandardDirection.Y;
 		movementPerSecond += speedUp * DeltaSeconds;
@@ -320,6 +333,7 @@ void ADisc::specialShot(float &DeltaSeconds)
 		if (playerPossessing)
 		{
 			isSpecial = false;
+			movementPerSecond -= 800; //we take a little bit of heat off of it once it's caught
 			return;
 		}
 	}
@@ -414,6 +428,7 @@ bool ADisc::bumperCollision()
 	Go through all overlapping actors, if one is a bumper then we return true.
 	*/
 
+	/*
 	TArray<AActor*> OverlappingActors;
 	GetOverlappingActors(OverlappingActors);
 
@@ -428,19 +443,20 @@ bool ADisc::bumperCollision()
 		}
 
 	}
+	*/
 
 	/*Code that accomplishes this based off location rather than collision.
 	While feasible, it would need to be supplemented with similar logic for restricting the player.
 	Collision is the nicer way to accomplish this objective, but the collision currently in the
 	game is finicky in part due to the various overlaps that are allowed. Currently, the player can walk into
 	part of a wall and goal, and this also restricts his ability to dash. A change to this location based system
-	will thus probably be made just to make it look nicer and play better.
+	will thus probably be made just to make it look nicer and play better. */
 
 
-if (RootComponent->GetComponentLocation().X >= xMax - xOffset) ||
-		(RootComponent->GetComponentLocation().X <= xMin + xOffset))
+
+if ((RootComponent->GetComponentLocation().X >= xMax - xOffset) || (RootComponent->GetComponentLocation().X <= xMin + xOffset))
 		return true;
-		*/
+		
 	return false;
 
 }
@@ -458,7 +474,7 @@ void ADisc::checkGoalCollision()
 		if (Goal)
 		{
 		//in the event of a goal, reports to game mode and then destroys itself.
-			myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
+			//myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
 			myGameMode->updateScore(Goal->ScoringSwitch, Goal->GoalValue);
 			Destroy();
 		}
@@ -496,7 +512,7 @@ void ADisc::crossedMidlineHelper()
 		//disc didn't make it to other side
 		
 		bool scoreSwitch;
-		AJammingTheWindGameMode* myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
+		
 		if (RootComponent->GetComponentLocation().Y < midLine)
 			scoreSwitch = false;
 		else
@@ -521,10 +537,10 @@ void ADisc::checkIfInBounds()
 	if (check.X > xMax + outOfBoundsOffset ||
 		check.X < xMin - outOfBoundsOffset ||
 		check.Y > yMax + outOfBoundsOffset ||
-		check.Y < yMin + outOfBoundsOffset)
+		check.Y < yMin - outOfBoundsOffset)
 	{
 
-		AJammingTheWindGameMode* myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
+		//AJammingTheWindGameMode* myGameMode = Cast<AJammingTheWindGameMode>(UGameplayStatics::GetGameMode(this));
 		myGameMode->updateScore(true, 0);
 		FString output;
 		output = "Disc Out of Bounds, Resetting Disc";

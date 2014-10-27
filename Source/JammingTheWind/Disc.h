@@ -34,6 +34,9 @@ class ADisc : public AActor
 
 	UFUNCTION(BlueprintNativeEvent)
 	void SpawnMove();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void KillSpawnMove();
 	
 	
 	
@@ -72,6 +75,7 @@ private:
 	bool isLobShot;
 	bool aimDirLeft; //set based off player direction, initialized as false e.g aiming right for now
 	bool playerPossessing;
+	bool firstPossession;
 	//bool curveRebound;
 	bool curveFirstRun;
 	bool flipping;

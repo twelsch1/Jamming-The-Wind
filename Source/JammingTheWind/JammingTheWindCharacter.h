@@ -17,9 +17,11 @@ class AJammingTheWindCharacter : public ACharacter
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
 	TSubobjectPtr<class USpringArmComponent> CameraBoom; 
 
-	/*(UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MyChar)
-	bool ReceiveDisc;
-	*/
+	TSubobjectPtr<class USphereComponent> movementXSphere;
+
+	TSubobjectPtr<class USphereComponent> movementYSphere;
+
+	TSubobjectPtr<class USphereComponent> catchSphere;
 
 	virtual void Tick(float DeltaSeconds) OVERRIDE;
 
@@ -28,6 +30,8 @@ class AJammingTheWindCharacter : public ACharacter
 	void setControllerRotationX(float);
 	void setControllerRotationY(float);
 	void setMovementLocked(bool);
+	void resetXDashing();
+	void resetYDashing();
 	void resetHelper();
 	void setYDir(int);
 	void addToCurveDeltaHelper(float);
@@ -37,15 +41,22 @@ class AJammingTheWindCharacter : public ACharacter
 	bool chargeAButton();
 	bool chargeXButton();
 	bool flipOrCharge();
+	bool checkIfCharacterInbounds();
 	float getControllerRotationX();
+	float getDashXDistance();
+	float getDashYDistance();
 	int getYDir();
 	int getXDir();
 	bool getInPossession();
+	bool getWallCollision();
+	bool getGoalCollision();
 
 private:
 	bool inPossession;
 	ADisc* disc;
 	FVector discSetLocation;
+	float collisionYOffset;
+	float collisionXOffset;
 	float controllerRotationX;
 	float controllerRotationY;
 	float curveTimer;
@@ -60,11 +71,15 @@ private:
 	float slowDown;
 	float minSpeed;
 	float maxSpeed;
+
+	float dashCooldownTimer;
+	float dashCooldownLength;
 	float dashAmplitude;
 	float shotAmplitude;
 	float dashMovementPerSecond;
 	float dashOverTime;
 	float dashingTimer;
+
 	float rotationAdjustment;
 	float rotationPerSecond;
 	float curveLeeway;
@@ -101,6 +116,7 @@ private:
 	float xMin;
 	float xMax;
 	float xOffset;
+	float xBoundOffset;
 	float yMin;
 	float yMax;
 	
@@ -145,6 +161,7 @@ private:
 
 
 };
+
 
 FORCEINLINE void AJammingTheWindCharacter::resetHelper()
 {
@@ -200,6 +217,15 @@ FORCEINLINE void AJammingTheWindCharacter::addToCurveDeltaHelper(float additive)
 	curveDeltaHelper += additive;
 }
 
+FORCEINLINE void AJammingTheWindCharacter::resetXDashing()
+{
+	xDashDirection = 0;
+}
+
+FORCEINLINE void AJammingTheWindCharacter::resetYDashing()
+{
+	yDashDirection = 0;
+}
 
 FORCEINLINE bool AJammingTheWindCharacter::getDashing()
 {
@@ -237,7 +263,15 @@ FORCEINLINE float AJammingTheWindCharacter::getControllerRotationX()
 	return controllerRotationX;
 }
 
+FORCEINLINE float AJammingTheWindCharacter::getDashXDistance()
+{
+	return xDashDirection;
+}
 
+FORCEINLINE float AJammingTheWindCharacter::getDashYDistance()
+{
+	return yDashDirection;
+}
 
 FORCEINLINE bool AJammingTheWindCharacter::flipOrCharge()
 {

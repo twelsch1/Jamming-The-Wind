@@ -15,6 +15,8 @@ AJammingTheWindBumper::AJammingTheWindBumper(const class FPostConstructInitializ
 
 
 	BumperMesh->AttachTo(RootComponent);
+
+	Midline = false;
 }
 
 

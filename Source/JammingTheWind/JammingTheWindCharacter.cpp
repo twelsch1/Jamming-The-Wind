@@ -27,6 +27,23 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	CharacterMovement->RotationRate = FRotator(0.f, 640.f, 0.f);
 	CharacterMovement->bConstrainToPlane = true;
 	CharacterMovement->bSnapToPlaneAtStart = true;
+
+	movementXSphere = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("movementXSphere"));
+	movementXSphere->AttachTo(RootComponent);
+	movementXSphere->SetSphereRadius(175);
+	movementXSphere->SetHiddenInGame(true);
+
+	movementYSphere = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("movementYSphere"));
+	movementYSphere->AttachTo(RootComponent);
+	movementYSphere->SetSphereRadius(125);
+	movementYSphere->SetHiddenInGame(true);
+
+	catchSphere = PCIP.CreateDefaultSubobject<USphereComponent>(this, TEXT("catchSphere"));
+	catchSphere->AttachTo(RootComponent);
+	catchSphere->SetSphereRadius(90);
+	catchSphere->SetHiddenInGame(true);
+	
+
 	startRot = true;
 	rotationAdjustment = 0;
 	inPossession = false;
@@ -64,16 +81,16 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	yDashDirection = 0;
 	xDashDirection = 0;
 	dashingTimer = -1;
-	dashMovementPerSecond = 2000;
-	dashAmplitude = 250; //was 500
-	dashOverTime = dashAmplitude / dashMovementPerSecond;
+
+	dashCooldownTimer = -1;
+	
 
 	refreshTimer = -1;
 	refreshEndTimer = 0.3;
 
 
 	discCollTimer = -1;
-	discCollEndTimer = 0.1;
+	discCollEndTimer = 0.3;
 
 	//flipping variables
 	flipTimer = -1;
@@ -97,12 +114,19 @@ AJammingTheWindCharacter::AJammingTheWindCharacter(const class FPostConstructIni
 	xOffset = 338; //200 from edge
 	yMin = -2510;
 	yMax = 430;
+	collisionXOffset = 140;
+	collisionYOffset = 140;
+	xBoundOffset = 155;
 
 	//modify below to gameplay feel
 	speedUp = 200; //amount disc speeds up when shot
 	slowDown = -250; //amount disc slows down as its being held per second
 	minSpeed = 2000; //the minimum speed the disc can reach
 	maxSpeed = 3500; //the maximum speed the disc can reach
+	dashMovementPerSecond = 2000; //dashing speed
+	dashAmplitude = 250; //dashing length
+	dashOverTime = dashAmplitude / dashMovementPerSecond;
+	dashCooldownLength = 0.3; //cooldown on the dash, won't accept a input until cooldown is over
 	curveLeeway = 8; //the margin of error we allow for starting curve event 
 	rotationPerSecond = 180 * 4; //e.g the max 180 rotation would take 1/4 of a second
 	rotationLeeway = 0.1; //leeway in degrees for orientation event
@@ -192,6 +216,8 @@ plane is actually y and vertical x.*/
 				disc->setFlipping(true);
 			}
 
+		
+
 		//if flipEvent, the disc starts flipping
 		//we reset some variables and move the disc to the offet
 		hasShot = false;
@@ -201,6 +227,17 @@ plane is actually y and vertical x.*/
 		orientLocationHelper = RootComponent->GetComponentLocation();
 		orientLocationHelper.Set(orientLocationHelper.X, orientLocationHelper.Y, zOffset);
 		discSetLocation = orientLocationHelper + FVector(0, yOffset * yDir, 0);
+
+		if (discSetLocation.X > 0) //top wall
+		{
+			if (discSetLocation.X > xMax - xBoundOffset)
+				discSetLocation.Set(xMax - xBoundOffset, discSetLocation.Y, discSetLocation.Z);
+		}
+		else //bottom wall
+		{
+			if (discSetLocation.X < xMin + xBoundOffset)
+				discSetLocation.Set(xMin + xBoundOffset, discSetLocation.Y, discSetLocation.Z);
+		}
 		disc->SetActorLocationAndRotation(discSetLocation, FRotator(0, 0, 0));
 		disc->resetCurveHelper();
 		startOfPossession = false;
@@ -349,13 +386,17 @@ void AJammingTheWindCharacter::receiveAButtonInput()
 
 	}
 
-	if (!inPossession && !dashing && !movementLocked && getStickInput()) //when not in possession and stick is moving and we aren't movement locked
+	if (!inPossession && !dashing && !movementLocked && getStickInput() && dashCooldownTimer < 0) //when not in possession and stick is moving and we aren't movement locked
 	{
 		//begin dashing
-		dashing = true;
-		dashingTimer = 0;
+		
 		xDashDirection = calculateXDirection(dashAmplitude);
 		yDashDirection = calculateYDirection(dashAmplitude);
+		if (RootComponent->GetComponentRotation().Yaw < 0)
+			yDashDirection *= -1;
+
+		dashing = true;
+		dashingTimer = 0;
 	
 	}
 		
@@ -419,20 +460,20 @@ void AJammingTheWindCharacter::calculateRotationAdjustment()
 }
 void AJammingTheWindCharacter::dash(float &DeltaSeconds)
 {
-	int mult, updates;
+	int updates;
 	updates = 1;
 	FVector Delta;
-	if (RootComponent->GetComponentRotation().Yaw < 0)
+/*	if (RootComponent->GetComponentRotation().Yaw < 0)
 		mult = -1;
 	else
 		mult = 1;
-
+*/
 	//we move the character an extra amount in the direction they are already aiming to create a dash effect
 	for (int i = 0; i < updates; ++i)
 	{
 		dashCollision();
-		
-		Delta.Set(xDashDirection / dashOverTime * (DeltaSeconds / updates), mult * yDashDirection / dashOverTime * (DeltaSeconds / updates), 0);
+		//dashing = checkIfCharacterInbounds();
+		Delta.Set(xDashDirection / dashOverTime * (DeltaSeconds / updates),  yDashDirection / dashOverTime * (DeltaSeconds / updates), 0);
 		if (dashing)
 			RootComponent->MoveComponent(Delta, RootComponent->GetComponentRotation(), true);
 		
@@ -440,21 +481,22 @@ void AJammingTheWindCharacter::dash(float &DeltaSeconds)
 			i += updates;
 	
 
-		dashCollision();
+		//dashCollision();
 
 	}
 }
 void AJammingTheWindCharacter::dashCollision()
 {
 	//check to see if player is running into a wall or a goal
+	//Might be deprecated by reworked checkIfCharacterInbounds
 	TArray<AActor*> overlappingActors;
 	
 	GetOverlappingActors(overlappingActors);
 	for (int i = 0; i < overlappingActors.Num(); ++i)
 	{
-		AJammingTheWindBumper* const myBumper = Cast<AJammingTheWindBumper>(overlappingActors[i]);
+		//AJammingTheWindBumper* const myBumper = Cast<AJammingTheWindBumper>(overlappingActors[i]);
 
-		AJammingTheWindGoal* const myGoal = Cast<AJammingTheWindGoal>(overlappingActors[i]);
+	//	AJammingTheWindGoal* const myGoal = Cast<AJammingTheWindGoal>(overlappingActors[i]);
 
 		ADisc* const thisDisc = Cast<ADisc>(overlappingActors[i]);
 
@@ -463,7 +505,7 @@ void AJammingTheWindCharacter::dashCollision()
 			dashing = false;
 			dashingTimer = -1;
 		}
-		if (myGoal)
+		/*if (myGoal)
 		{
 			//e.g if it's not the floor
 			if (myGoal->GoalValue != 2)
@@ -473,16 +515,16 @@ void AJammingTheWindCharacter::dashCollision()
 				dashingTimer = -1;
 			}
 
-		}
+		}*/
 
-		if (myBumper)
+	/*	if (myBumper)
 		{
 			dashing = false;
 			dashingTimer = -1;
 
 		}
 		
-
+		*/
 	}
 	
 	
@@ -492,7 +534,9 @@ bool AJammingTheWindCharacter::isDiscColliding()
 {
 	//when disc collides, we set disc to myDisc and return true to start possession
 	TArray<AActor*> overlappingActors;
-	GetOverlappingActors(overlappingActors);
+
+	catchSphere->GetOverlappingActors(overlappingActors);
+	
 	for (int i = 0; i < overlappingActors.Num(); ++i)
 	{
 		ADisc* const myDisc = Cast<ADisc>(overlappingActors[i]);
@@ -502,9 +546,10 @@ bool AJammingTheWindCharacter::isDiscColliding()
 		if (myDisc)
 		{
 			disc = myDisc;
+		
 			disc->setPlayerPossessing(true);
 			return true;
-
+			
 		}
 
 	}
@@ -550,11 +595,19 @@ void AJammingTheWindCharacter::runTimers(float &DeltaSeconds)
 	}
 	if (refreshTimer >= 0)
 		refreshTimer += DeltaSeconds;
+
 	if (refreshTimer > refreshEndTimer)
 	{
 		movementLocked = false;
 		refreshTimer = -1;
 	}
+
+	if (dashCooldownTimer >= 0)
+		dashCooldownTimer += DeltaSeconds;
+
+	if (dashCooldownTimer > dashCooldownLength)
+		dashCooldownTimer = -1;
+
 	if (orientDiscTimer >= 0)
 		orientDiscTimer += DeltaSeconds;
 
@@ -571,6 +624,7 @@ void AJammingTheWindCharacter::runTimers(float &DeltaSeconds)
 	{
 		dashingTimer = -1;
 		dashing = false;
+		dashCooldownTimer = 0;
 
 	}
 
@@ -670,10 +724,7 @@ void AJammingTheWindCharacter::chargeShotHelper()
 				disc->StandardDirection.Set(-1, yDir, disc->StandardDirection.Z);
 			else
 				disc->StandardDirection.Set(1, yDir, disc->StandardDirection.Z);
-			disc->setSpecial(true);
-			disc->setStandard(false);
-			disc->setCurved(false);
-			disc->setLob(false);
+		
 
 			refreshTimer = 0;
 			movementLocked = true;
@@ -686,7 +737,13 @@ void AJammingTheWindCharacter::chargeShotHelper()
 			xCharged = false;
 			inPossession = false;
 			disc->setPlayerPossessing(false);
-		
+			//disc->setCrossedMidline(false);
+			
+			disc->setStandard(false);
+			disc->setCurved(false);
+			disc->setLob(false);
+			disc->setSpecial(true);
+			
 
 		}
 
@@ -756,4 +813,59 @@ bool AJammingTheWindCharacter::discSet()
 		return true;
 	else
 		return false;
+}
+
+bool AJammingTheWindCharacter::checkIfCharacterInbounds()
+{
+
+	FVector check = GetActorLocation();
+	if (check.X > xMax - collisionXOffset ||
+		check.X < xMin + collisionXOffset ||
+		check.Y > yMax - collisionYOffset ||
+		check.Y < yMin + collisionYOffset)
+	{
+		return false;
+	}
+		
+	return true;
+}
+bool AJammingTheWindCharacter::getWallCollision()
+{
+	
+	TArray<AActor*> overlappingActors;
+
+	movementXSphere->GetOverlappingActors(overlappingActors);
+	for (int i = 0; i < overlappingActors.Num(); ++i)
+	{
+		AJammingTheWindBumper* const myBumper = Cast<AJammingTheWindBumper>(overlappingActors[i]);
+
+		if (myBumper)
+		{	
+			if (!myBumper->Midline)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+bool AJammingTheWindCharacter::getGoalCollision()
+{
+	TArray<AActor*> overlappingActors;
+
+	movementYSphere->GetOverlappingActors(overlappingActors);
+	
+	for (int i = 0; i < overlappingActors.Num(); ++i)
+	{
+		AJammingTheWindGoal* const myGoal = Cast<AJammingTheWindGoal>(overlappingActors[i]);
+
+		if (myGoal)
+		{
+			if (myGoal->GoalValue != 2)
+				return true;
+		}
+	}
+
+	return false;
+
 }
